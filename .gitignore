@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Environment — NEVER commit this file
+.env
+.env.local
+.env.*.local
+
+# Uploads (temporary files)
+uploads/*
+!uploads/.gitkeep
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Build artifacts
+dist/
+build/
+
+# Environment example is safe to commit
+!.env.example
+
+# Coverage reports
+coverage/

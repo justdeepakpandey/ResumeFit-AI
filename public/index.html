@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ResumeFit AI — AI Resume Analyzer & Job Matching</title>
+  <meta name="description" content="ResumeFit AI analyses your resume against any job description using Gemini AI, calculates a transparent match score, and gives you actionable improvement suggestions." />
+  <meta name="theme-color" content="#0a0f1e" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="/css/style.css" />
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+</head>
+<body>
+<div class="app-wrapper">
+
+  <!-- ── Header ─────────────────────────────────────────── -->
+  <header class="header" role="banner">
+    <div class="container">
+      <div class="header-inner">
+        <div class="logo">
+          <div class="logo-icon" aria-hidden="true">🎯</div>
+          <span class="logo-text">ResumeF<span>it</span> AI</span>
+          <span class="header-badge">Beta</span>
+        </div>
+        <div class="header-status" role="status" aria-live="polite">
+          <div class="status-dot checking" id="statusDot" title="Checking API status"></div>
+          <span id="statusText">Checking…</span>
+        </div>
+        <nav class="header-nav" aria-label="Main Navigation">
+          <button class="nav-link active" id="navDashboardBtn" type="button">Dashboard</button>
+          <button class="nav-link" id="navHistoryBtn" type="button">My History</button>
+          <button class="nav-link" id="navHelpBtn" type="button">Help</button>
+          <button class="nav-link" id="navAboutBtn" type="button">About</button>
+        </nav>
+        <div class="header-auth" id="headerAuth">
+          <div class="auth-btn-group" id="loggedOutNav">
+            <span class="guest-indicator" id="guestBadge" title="You are currently using Guest Mode">
+              <span class="guest-dot"></span> Guest Mode
+            </span>
+            <button class="btn-auth-nav" id="openLoginBtn" type="button">Log In</button>
+            <button class="btn-auth-nav btn-auth-primary" id="openSignupBtn" type="button">Sign Up</button>
+            <button class="btn-auth-nav btn-auth-guest-logout" id="guestLogoutBtn" type="button" title="End guest session and reset temporary data">Logout Guest</button>
+          </div>
+          <div class="user-profile hidden" id="userProfileNav">
+            <span class="user-avatar" id="userAvatar">👤</span>
+            <span class="user-name" id="userName">User</span>
+            <button class="btn-logout" id="logoutBtn" type="button" title="Log out">Log Out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Main ───────────────────────────────────────────── -->
+  <main class="main" id="main">
+    <div class="container">
+      <div class="page-grid">
+
+        <!-- Left: Form Panel -->
+        <aside class="form-panel" aria-label="Analysis Input">
+
+          <!-- Upload card -->
+          <div class="card" id="uploadCard">
+            <h2 class="section-title">Upload Resume</h2>
+
+            <!-- Drop zone -->
+            <div class="drop-zone" id="dropZone" role="button" tabindex="0"
+                 aria-label="Upload resume file. Drag and drop PDF or DOCX, or click to browse.">
+              <input type="file" id="resumeFile" accept=".pdf,.docx"
+                     aria-label="Choose resume file" />
+              <span class="drop-icon" aria-hidden="true" id="dropIcon">📄</span>
+              <div class="drop-title" id="dropTitle">Drag & drop your resume</div>
+              <div class="drop-subtitle" id="dropSubtitle">PDF or DOCX · Max 5 MB</div>
+              <div class="drop-file-name" id="dropFileName"></div>
+            </div>
+
+            <!-- Job description -->
+            <div class="form-group">
+              <label class="form-label" for="jobDescription">
+                Job Description<span aria-hidden="true">*</span>
+              </label>
+              <textarea
+                class="form-textarea"
+                id="jobDescription"
+                rows="8"
+                placeholder="Paste the full job description here…"
+                required
+                aria-required="true"
+              ></textarea>
+            </div>
+
+            <!-- Optional fields -->
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="jobTitle">Job Title</label>
+                <input class="form-input" type="text" id="jobTitle"
+                       placeholder="e.g. Software Engineer" maxlength="255" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="companyName">Company</label>
+                <input class="form-input" type="text" id="companyName"
+                       placeholder="e.g. Acme Corp" maxlength="255" />
+              </div>
+            </div>
+
+            <!-- Progress bar -->
+            <div class="progress-bar-wrap" id="progressWrap" aria-hidden="true">
+              <div class="progress-bar" id="progressBar"></div>
+            </div>
+
+            <!-- Actions -->
+            <button class="btn-analyze" id="analyzeBtn" type="button"
+                    aria-label="Analyze resume against the job description">
+              <div class="spinner" aria-hidden="true"></div>
+              <span class="btn-text">✨ Analyze Resume</span>
+            </button>
+
+            <button class="btn-secondary hidden" id="resetBtn" type="button"
+                    aria-label="Reset form and analyze a new job description">
+              ↺ Analyze Another Job
+            </button>
+          </div>
+
+          <!-- History card -->
+          <div class="card" id="historyCard">
+            <div class="card-title">
+              <span class="icon" aria-hidden="true">🕐</span>
+              <span id="historyHeadingText">My History</span>
+              <span id="historyBadge" style="margin-left:auto; font-size:11px; color:var(--text-muted);">
+                Saved Reports
+              </span>
+            </div>
+
+            <!-- Guest Mode Notice (Shown when in Guest Mode) -->
+            <div class="guest-history-notice" id="guestHistoryNotice">
+              <div class="guest-notice-badge">ℹ️ Guest Mode</div>
+              <p class="guest-notice-text">
+                Analysis history is <strong>not saved</strong> in Guest Mode to protect your privacy.
+              </p>
+              <p class="guest-notice-sub">
+                Sign up or log in to keep your analyses saved and revisit past reports anytime.
+              </p>
+              <div class="guest-notice-actions">
+                <button class="btn-auth-nav btn-auth-sm" id="guestNoticeLoginBtn" type="button">Log In</button>
+                <button class="btn-auth-nav btn-auth-primary btn-auth-sm" id="guestNoticeSignupBtn" type="button">Sign Up</button>
+              </div>
+            </div>
+
+            <!-- Authenticated User History List (Shown when logged in) -->
+            <div id="historyList" class="history-list hidden" role="list"
+                 aria-label="Recent analysis history">
+              <p class="text-muted" id="historyEmptyMsg" style="font-size:13px; padding:8px 0;">
+                No saved analyses yet. Run an analysis to save it to your history.
+              </p>
+            </div>
+          </div>
+
+        </aside>
+
+        <!-- Right: Results Panel -->
+        <section class="results-panel" id="resultsPanel" aria-label="Analysis Results" aria-live="polite">
+
+          <!-- Empty state (shown before first analysis) -->
+          <div class="empty-state" id="emptyState">
+            <div class="empty-state-icon" aria-hidden="true">🚀</div>
+            <h1>Ready to Analyse</h1>
+            <p>Upload your resume, paste a job description, and click <strong>Analyze Resume</strong> to get your personalised match report powered by Gemini AI.</p>
+          </div>
+
+          <!-- Results (hidden until analysis complete) -->
+          <div id="resultsContent" class="hidden">
+
+            <!-- Score hero -->
+            <div class="score-hero fade-in" id="scoreHero">
+              <div class="score-ring-wrap" aria-label="Match score ring chart">
+                <svg class="score-ring-svg" viewBox="0 0 160 160" aria-hidden="true">
+                  <circle class="score-ring-bg" cx="80" cy="80" r="65" />
+                  <circle class="score-ring-fill" id="scoreRing" cx="80" cy="80" r="65" />
+                </svg>
+                <div class="score-ring-text">
+                  <span class="score-number" id="scoreNumber" aria-live="polite">0</span>
+                  <span class="score-label">/ 100</span>
+                </div>
+              </div>
+
+              <div class="score-details">
+                <div class="score-title" id="scoreTitle">Match Score</div>
+                <div class="score-subtitle" id="scoreSubtitle">Analysing your fit…</div>
+
+                <div class="score-bars" role="group" aria-label="Component scores">
+                  <div class="score-bar-row">
+                    <span class="score-bar-label">Skills (60%)</span>
+                    <div class="score-bar-track" role="progressbar" aria-label="Skills score">
+                      <div class="score-bar-fill" id="barSkills"></div>
+                    </div>
+                    <span class="score-bar-val" id="valSkills">0</span>
+                  </div>
+                  <div class="score-bar-row">
+                    <span class="score-bar-label">Experience (25%)</span>
+                    <div class="score-bar-track" role="progressbar" aria-label="Experience score">
+                      <div class="score-bar-fill" id="barExp"></div>
+                    </div>
+                    <span class="score-bar-val" id="valExp">0</span>
+                  </div>
+                  <div class="score-bar-row">
+                    <span class="score-bar-label">Projects (15%)</span>
+                    <div class="score-bar-track" role="progressbar" aria-label="Projects score">
+                      <div class="score-bar-fill" id="barProjects"></div>
+                    </div>
+                    <span class="score-bar-val" id="valProjects">0</span>
+                  </div>
+                </div>
+
+                <div class="score-meta">
+                  <span class="score-meta-item">
+                    Required skills: <strong id="metaRequired">—</strong>
+                  </span>
+                  <span class="score-meta-item">
+                    Preferred skills: <strong id="metaPreferred">—</strong>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Overall assessment -->
+            <div class="card fade-in" id="assessmentCard">
+              <div class="card-title"><span class="icon">💬</span> Overall Assessment</div>
+              <div class="assessment-box" id="assessmentText"></div>
+            </div>
+
+            <!-- Skills row -->
+            <div class="two-col-grid">
+              <!-- Matched skills -->
+              <div class="card fade-in" id="matchedSkillsCard">
+                <div class="card-title"><span class="icon">✅</span> Matched Skills</div>
+                <div class="badge-list" id="matchedSkillsList"></div>
+              </div>
+
+              <!-- Missing required -->
+              <div class="card fade-in" id="missingReqCard">
+                <div class="card-title"><span class="icon">⚠️</span> Missing Required Skills</div>
+                <div class="badge-list" id="missingRequiredList"></div>
+              </div>
+            </div>
+
+            <!-- Missing preferred -->
+            <div class="card fade-in" id="missingPrefCard">
+              <div class="card-title"><span class="icon">💡</span> Missing Preferred Skills</div>
+              <div class="badge-list" id="missingPreferredList"></div>
+            </div>
+
+            <!-- Experience / Education / Projects -->
+            <div class="three-col-grid">
+              <div class="card fade-in" id="expCard">
+                <div class="card-title">
+                  <span class="icon">💼</span> Experience
+                  <span class="analysis-score-pill" id="expPill"></span>
+                </div>
+                <p class="card-summary" id="expSummary"></p>
+                <ul class="highlight-list" id="expHighlights"></ul>
+              </div>
+
+              <div class="card fade-in" id="eduCard">
+                <div class="card-title">
+                  <span class="icon">🎓</span> Education
+                  <span class="analysis-score-pill" id="eduPill"></span>
+                </div>
+                <p class="card-summary" id="eduSummary"></p>
+              </div>
+
+              <div class="card fade-in" id="projCard">
+                <div class="card-title">
+                  <span class="icon">🔨</span> Projects
+                  <span class="analysis-score-pill" id="projPill"></span>
+                </div>
+                <p class="card-summary" id="projSummary"></p>
+                <ul class="highlight-list" id="projList"></ul>
+              </div>
+            </div>
+
+            <!-- Keywords -->
+            <div class="card fade-in" id="keywordsCard">
+              <div class="card-title"><span class="icon">🔑</span> Important Missing Keywords</div>
+              <div class="keyword-cloud" id="keywordCloud"></div>
+            </div>
+
+            <!-- Suggestions -->
+            <div class="card fade-in" id="suggestionsCard">
+              <div class="card-title"><span class="icon">📝</span> Improvement Suggestions</div>
+              <div class="suggestion-list" id="suggestionList"></div>
+            </div>
+
+            <!-- Strengths & Gaps -->
+            <div class="card fade-in" id="sgCard">
+              <div class="card-title"><span class="icon">⚖️</span> Strengths & Gaps</div>
+              <div class="sg-grid">
+                <div class="sg-col">
+                  <div class="card-title" style="margin-bottom:8px; font-size:12px;">
+                    <span style="color:var(--green);">▲</span> Strengths
+                  </div>
+                  <div id="strengthsList"></div>
+                </div>
+                <div class="sg-col">
+                  <div class="card-title" style="margin-bottom:8px; font-size:12px;">
+                    <span style="color:var(--red);">▼</span> Gaps
+                  </div>
+                  <div id="gapsList"></div>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /resultsContent -->
+        </section>
+
+      </div><!-- /page-grid -->
+    </div><!-- /container -->
+  </main>
+
+  <!-- ── Footer ─────────────────────────────────────────── -->
+  <footer class="footer" role="contentinfo">
+    <div class="container footer-inner">
+      <p class="footer-copy">ResumeFit AI · Powered by Gemini · Analysis is for guidance only</p>
+      <div class="footer-links">
+        <button class="footer-link-btn" id="footerAboutBtn" type="button">About</button>
+        <button class="footer-link-btn" id="footerHelpBtn" type="button">Help</button>
+        <a href="/api/health" target="_blank" rel="noopener" class="footer-link-btn">Health Check</a>
+      </div>
+    </div>
+  </footer>
+
+</div><!-- /app-wrapper -->
+
+<!-- ── Notification container ─────────────────────────────── -->
+<div id="notifications" role="region" aria-label="Notifications" aria-live="assertive"></div>
+
+<!-- ── Auth Modal Overlay ─────────────────────────────────── -->
+<div class="auth-modal-overlay hidden" id="authModal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+  <div class="auth-card">
+    <button class="auth-modal-close" id="closeAuthModalBtn" type="button" aria-label="Close modal">✕</button>
+
+    <!-- Tab Switcher -->
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tabLoginBtn" type="button">Log In</button>
+      <button class="auth-tab" id="tabSignupBtn" type="button">Sign Up</button>
+    </div>
+
+    <!-- Alert Box -->
+    <div class="auth-alert hidden" id="authAlert" role="alert"></div>
+
+    <!-- Login Form -->
+    <form id="loginForm" class="auth-form" novalidate>
+      <h2 class="auth-title" id="authModalTitle">Welcome Back</h2>
+      <p class="auth-subtitle">Log in to analyze resumes and view your saved history.</p>
+
+      <div class="form-group">
+        <label class="form-label" for="loginEmail">Email Address</label>
+        <input class="form-input" type="email" id="loginEmail" placeholder="you@example.com" required autocomplete="email" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="loginPassword">Password</label>
+        <input class="form-input" type="password" id="loginPassword" placeholder="••••••••" required autocomplete="current-password" />
+      </div>
+
+      <button class="btn-analyze btn-auth-submit" type="submit" id="loginSubmitBtn">
+        <span class="btn-text">Log In</span>
+      </button>
+
+      <p class="auth-footer-text">
+        Don't have an account? <a href="#" id="switchToSignup">Sign up here</a>
+      </p>
+    </form>
+
+    <!-- Signup Form -->
+    <form id="signupForm" class="auth-form hidden" novalidate>
+      <h2 class="auth-title">Create an Account</h2>
+      <p class="auth-subtitle">Sign up to analyze resumes and keep track of your scores.</p>
+
+      <div class="form-group">
+        <label class="form-label" for="signupName">Full Name</label>
+        <input class="form-input" type="text" id="signupName" placeholder="John Doe" required autocomplete="name" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="signupEmail">Email Address</label>
+        <input class="form-input" type="email" id="signupEmail" placeholder="you@example.com" required autocomplete="email" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="signupPassword">Password</label>
+        <input class="form-input" type="password" id="signupPassword" placeholder="Minimum 6 characters" required autocomplete="new-password" minlength="6" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="signupConfirmPassword">Confirm Password</label>
+        <input class="form-input" type="password" id="signupConfirmPassword" placeholder="Re-enter password" required autocomplete="new-password" minlength="6" />
+      </div>
+
+      <button class="btn-analyze btn-auth-submit" type="submit" id="signupSubmitBtn">
+        <span class="btn-text">Sign Up</span>
+      </button>
+
+      <p class="auth-footer-text">
+        Already have an account? <a href="#" id="switchToLogin">Log in here</a>
+      </p>
+    </form>
+  </div>
+</div>
+
+<!-- ── About Modal Overlay ─────────────────────────────────── -->
+<div class="modal-overlay hidden" id="aboutModal" role="dialog" aria-modal="true" aria-labelledby="aboutModalTitle">
+  <div class="info-modal-card">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <span class="modal-icon" aria-hidden="true">🎯</span>
+        <h2 class="modal-title" id="aboutModalTitle">About ResumeFit AI</h2>
+      </div>
+      <button class="modal-close-btn" id="closeAboutModalBtn" type="button" aria-label="Close About modal">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="about-lead">
+        <strong>ResumeFit AI</strong> is a modern, AI-powered resume analyzer and job matching intelligence platform. It analyzes candidate resumes against job descriptions to provide deep, transparent insights into role readiness and skill compatibility.
+      </div>
+
+      <div class="about-section">
+        <h3 class="about-heading">Purpose</h3>
+        <p class="about-text">
+          Job seekers frequently apply without knowing how well their resume aligns with specific hiring requirements or automated Applicant Tracking Systems (ATS). ResumeFit AI bridges this gap by comparing your resume directly with real job descriptions, highlighting critical gaps, and recommending concrete adjustments to maximize your interview chances.
+        </p>
+      </div>
+
+      <div class="about-section">
+        <h3 class="about-heading">Key Features</h3>
+        <ul class="about-features-list">
+          <li><strong>Intelligent Resume Analysis:</strong> Parses PDF and Word (.docx) resumes to extract professional background, technical competencies, and project history.</li>
+          <li><strong>Targeted Job Matching:</strong> Evaluates alignment against role responsibilities, required qualifications, and industry keywords.</li>
+          <li><strong>Skill Gap Identification:</strong> Identifies matched competencies alongside missing required and preferred skills.</li>
+          <li><strong>Transparent Score Breakdown:</strong> Computes an explainable match score using weighted categories: Skills (60%), Experience (25%), and Projects (15%).</li>
+          <li><strong>Actionable Recommendations:</strong> Delivers personalized suggestions and keyword advice for targeted resume tuning.</li>
+          <li><strong>Authenticated History &amp; Guest Mode:</strong> Enjoy complete freedom with instant Guest Mode or sign in to permanently save, revisit, and manage your analysis history.</li>
+        </ul>
+      </div>
+
+      <div class="about-section about-notice">
+        <div class="notice-icon">⚠️</div>
+        <p class="notice-text">
+          <strong>AI Accuracy Notice:</strong> AI-generated results, match scores, and recommendations are automated estimates intended for guidance only. They do not guarantee job offers or interview selection. Please review all insights and verify suggestions against your genuine background.
+        </p>
+      </div>
+
+      <div class="about-credit">
+        Built with ❤️ by Deepak pandey
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-modal-action" id="backFromAboutBtn" type="button">Back to Dashboard</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Help Modal Overlay ──────────────────────────────────── -->
+<div class="modal-overlay hidden" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
+  <div class="info-modal-card help-modal-card">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <span class="modal-icon" aria-hidden="true">💡</span>
+        <h2 class="modal-title" id="helpModalTitle">Help &amp; Support</h2>
+      </div>
+      <button class="modal-close-btn" id="closeHelpModalBtn" type="button" aria-label="Close Help modal">✕</button>
+    </div>
+
+    <!-- Help Modal Tabs -->
+    <div class="modal-subnav">
+      <button class="modal-tab active" id="tabHelpGuideBtn" type="button">How to Use</button>
+      <button class="modal-tab" id="tabHelpFaqBtn" type="button">FAQs</button>
+      <button class="modal-tab" id="tabHelpFeedbackBtn" type="button">Feedback</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- ── Tab 1: How to Use Guide ── -->
+      <div class="help-tab-content" id="helpGuideSection">
+        <h3 class="guide-title">How to Use ResumeFit AI</h3>
+        <ol class="guide-steps-list">
+          <li class="guide-step">
+            <span class="step-num">1</span>
+            <div class="step-content">
+              <strong>Open ResumeFit AI in Guest Mode or log in to your account.</strong>
+              <p>You can start immediately as a guest without creating an account, or log in to save your reports.</p>
+            </div>
+          </li>
+          <li class="guide-step">
+            <span class="step-num">2</span>
+            <div class="step-content">
+              <strong>Upload your resume in a supported format.</strong>
+              <p>Drag and drop or browse for your resume in PDF (.pdf) or Word (.docx) format (up to 5 MB).</p>
+            </div>
+          </li>
+          <li class="guide-step">
+            <span class="step-num">3</span>
+            <div class="step-content">
+              <strong>Paste the complete job description.</strong>
+              <p>Paste the full job post text, including responsibilities, requirements, and preferred qualifications (minimum 50 characters).</p>
+            </div>
+          </li>
+          <li class="guide-step">
+            <span class="step-num">4</span>
+            <div class="step-content">
+              <strong>Enter the job title and company name if desired.</strong>
+              <p>These optional fields help contextualize your analysis report and organize saved entries.</p>
+            </div>
+          </li>
+          <li class="guide-step">
+            <span class="step-num">5</span>
+            <div class="step-content">
+              <strong>Click Analyze Resume.</strong>
+              <p>Our pipeline parses your resume text and evaluates it using Gemini AI against the job description.</p>
+            </div>
+          </li>
+          <li class="guide-step">
+            <span class="step-num">6</span>
+            <div class="step-content">
+              <strong>Review the overall match score.</strong>
+              <p>See your transparent 0–100 match score with a visual score ring and category score bars.</p>
+            </div>
+          </li>
+          <li class="guide-step">
+            <span class="step-num">7</span>
+            <div class="step-content">
+              <strong>Examine matched skills and missing required or preferred skills.</strong>
+              <p>Identify which competencies you already meet and what key technical or soft skills are absent.</p>
+            </div>
+          </li>
+          <li class="guide-step">
+            <span class="step-num">8</span>
+            <div class="step-content">
+              <strong>Review experience, projects, keywords, and improvement recommendations.</strong>
+              <p>Read detailed breakdowns and tailored suggestions to refine your resume bullet points.</p>
+            </div>
+          </li>
+          <li class="guide-step">
+            <span class="step-num">9</span>
+            <div class="step-content">
+              <strong>Log in or create an account if you want your analyses saved in your personal history.</strong>
+              <p>Registered users can reopen previous reports anytime and manage their analysis history.</p>
+            </div>
+          </li>
+        </ol>
+
+        <div class="help-callout-grid">
+          <div class="callout-card">
+            <div class="callout-header">👤 Guest Mode Privacy</div>
+            <p>Guest analysis results are temporary and kept in memory only for your current session. Guest history is never saved to our database.</p>
+          </div>
+          <div class="callout-card">
+            <div class="callout-header">🔒 Authenticated History</div>
+            <p>Logged-in users can safely revisit, review, and delete their saved analyses anytime through the My History section.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Tab 2: FAQs Accordion ── -->
+      <div class="help-tab-content hidden" id="helpFaqSection">
+        <h3 class="guide-title">Frequently Asked Questions</h3>
+        <div class="faq-accordion" id="faqAccordion">
+
+          <div class="faq-item">
+            <button class="faq-question" type="button" aria-expanded="false">
+              <span>Q1. What is ResumeFit AI?</span>
+              <span class="faq-icon" aria-hidden="true">▾</span>
+            </button>
+            <div class="faq-answer">
+              <p>ResumeFit AI compares your resume with a job description and provides a match score, skill gaps, and improvement suggestions.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question" type="button" aria-expanded="false">
+              <span>Q2. How do I use ResumeFit AI?</span>
+              <span class="faq-icon" aria-hidden="true">▾</span>
+            </button>
+            <div class="faq-answer">
+              <p>Upload your resume, paste the job description, and click Analyze Resume.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question" type="button" aria-expanded="false">
+              <span>Q3. Can I use the application without an account?</span>
+              <span class="faq-icon" aria-hidden="true">▾</span>
+            </button>
+            <div class="faq-answer">
+              <p>Yes. Guest Mode allows you to analyze your resume without signing up. Guest analysis history is not saved.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question" type="button" aria-expanded="false">
+              <span>Q4. Why do I need to sign up?</span>
+              <span class="faq-icon" aria-hidden="true">▾</span>
+            </button>
+            <div class="faq-answer">
+              <p>An account allows you to save analyses and revisit your previous reports through My History.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question" type="button" aria-expanded="false">
+              <span>Q5. What does the match score mean?</span>
+              <span class="faq-icon" aria-hidden="true">▾</span>
+            </button>
+            <div class="faq-answer">
+              <p>It is an estimate of how closely the information in your resume matches the supplied job requirements. It is not a guarantee of selection.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question" type="button" aria-expanded="false">
+              <span>Q6. What do Skills, Experience, and Projects scores mean?</span>
+              <span class="faq-icon" aria-hidden="true">▾</span>
+            </button>
+            <div class="faq-answer">
+              <p>Skills measures the match between resume evidence and job requirements. Experience estimates relevant professional or practical experience. Projects estimates the relevance of your projects to the role. Category weights affect the overall score: Skills (60%), Experience (25%), and Projects (15%).</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question" type="button" aria-expanded="false">
+              <span>Q7. What are missing skills?</span>
+              <span class="faq-icon" aria-hidden="true">▾</span>
+            </button>
+            <div class="faq-answer">
+              <p>These are job requirements for which the system did not find sufficient supporting evidence in the resume. A missing skill does not necessarily mean the candidate cannot perform it.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question" type="button" aria-expanded="false">
+              <span>Q8. Which resume formats are supported?</span>
+              <span class="faq-icon" aria-hidden="true">▾</span>
+            </button>
+            <div class="faq-answer">
+              <p>ResumeFit AI supports PDF (.pdf) and Microsoft Word (.docx) documents up to 5 MB.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question" type="button" aria-expanded="false">
+              <span>Q9. Is my guest analysis saved?</span>
+              <span class="faq-icon" aria-hidden="true">▾</span>
+            </button>
+            <div class="faq-answer">
+              <p>No. Guest results are temporary, and persistent analysis history is available only to authenticated users.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question" type="button" aria-expanded="false">
+              <span>Q10. Is the AI analysis always accurate?</span>
+              <span class="faq-icon" aria-hidden="true">▾</span>
+            </button>
+            <div class="faq-answer">
+              <p>No. AI can overlook information or make mistakes. Review the report and verify the recommendations before changing your resume.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question" type="button" aria-expanded="false">
+              <span>Q11. How can I view my previous analyses?</span>
+              <span class="faq-icon" aria-hidden="true">▾</span>
+            </button>
+            <div class="faq-answer">
+              <p>Log in to your account and open My History.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question" type="button" aria-expanded="false">
+              <span>Q12. What should I do if analysis fails?</span>
+              <span class="faq-icon" aria-hidden="true">▾</span>
+            </button>
+            <div class="faq-answer">
+              <p>Check that your resume is readable, the job description is provided, and the required service is available. Retry the analysis. If the issue continues, use the Feedback section.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── Tab 3: Feedback Section ── -->
+      <div class="help-tab-content hidden" id="helpFeedbackSection">
+        <h3 class="guide-title">Send Feedback</h3>
+        <p class="feedback-intro">
+          We welcome your suggestions, bug reports, and thoughts! Your feedback is securely stored to help us enhance ResumeFit AI.
+        </p>
+
+        <div class="feedback-alert hidden" id="feedbackAlert" role="alert"></div>
+
+        <form id="feedbackForm" class="feedback-form" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="feedbackType">Feedback Type<span aria-hidden="true">*</span></label>
+            <select class="form-input" id="feedbackType" required>
+              <option value="Bug Report">Bug Report</option>
+              <option value="Suggestion" selected>Suggestion</option>
+              <option value="General Feedback">General Feedback</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="feedbackSubject">Subject (Optional)</label>
+            <input class="form-input" type="text" id="feedbackSubject" placeholder="e.g. Suggestion for keyword export" maxlength="255" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="feedbackMessage">Message<span aria-hidden="true">*</span></label>
+            <textarea class="form-textarea" id="feedbackMessage" rows="5" placeholder="Please describe your suggestion, question, or issue in detail…" required minlength="5" maxlength="3000"></textarea>
+          </div>
+
+          <div class="feedback-actions">
+            <button class="btn-analyze" id="feedbackSubmitBtn" type="submit">
+              <div class="spinner" aria-hidden="true"></div>
+              <span class="btn-text">Submit Feedback</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-modal-action" id="backFromHelpBtn" type="button">Back to Dashboard</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js" defer></script>
+
+</body>
+</html>

@@ -1,0 +1,4 @@
+# uploads directory
+# Temporary resume files are stored here during processing and deleted immediately after text extraction.
+# This directory must exist but should not contain any persistent files.
+# Do NOT commit uploaded files to version control.
