@@ -5,9 +5,9 @@
 --
 -- NOTE: This is NOT required for production use.
 
-USE resume_fit_ai;
+USE defaultdb;
 
-INSERT IGNORE INTO analyses (
+INSERT IGNORE INTO resumefit_analyses (
   id,
   job_title,
   company_name,

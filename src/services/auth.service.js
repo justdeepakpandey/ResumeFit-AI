@@ -2,9 +2,9 @@
 /**
  * src/services/auth.service.js
  * User registration, authentication, password hashing, and token generation.
+ * Compatible with the shared Aiven MySQL users table schema.
  */
 
-const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { getPool } = require('../config/db');
@@ -34,6 +34,7 @@ function generateToken(user) {
 async function registerUser({ name, email, password }) {
   const pool = getPool();
   const normalizedEmail = email.trim().toLowerCase();
+  const trimmedName = name.trim().slice(0, 100);
 
   // Check if email already registered
   const [existing] = await pool.query(
@@ -47,15 +48,15 @@ async function registerUser({ name, email, password }) {
     });
   }
 
-  const id = crypto.randomUUID();
   const passwordHash = await bcrypt.hash(password, 10);
 
-  await pool.query(
-    'INSERT INTO users (id, name, email, password_hash) VALUES (?, ?, ?, ?)',
-    [id, name.trim(), normalizedEmail, passwordHash]
+  // Insert into shared users table (auto-increment id, password column)
+  const [result] = await pool.query(
+    'INSERT INTO users (name, email, password, provider) VALUES (?, ?, ?, ?)',
+    [trimmedName, normalizedEmail, passwordHash, 'local']
   );
 
-  const user = { id, name: name.trim(), email: normalizedEmail };
+  const user = { id: result.insertId, name: trimmedName, email: normalizedEmail };
   const token = generateToken(user);
 
   return { user, token };
@@ -73,16 +74,16 @@ async function loginUser({ email, password }) {
   const normalizedEmail = email.trim().toLowerCase();
 
   const [rows] = await pool.query(
-    'SELECT id, name, email, password_hash FROM users WHERE LOWER(email) = ?',
+    'SELECT id, name, email, password FROM users WHERE LOWER(email) = ?',
     [normalizedEmail]
   );
 
-  if (rows.length === 0) {
+  if (rows.length === 0 || !rows[0].password) {
     throw Object.assign(new Error('Invalid email or password.'), { status: 401 });
   }
 
   const userRow = rows[0];
-  const isMatch = await bcrypt.compare(password, userRow.password_hash);
+  const isMatch = await bcrypt.compare(password, userRow.password);
 
   if (!isMatch) {
     throw Object.assign(new Error('Invalid email or password.'), { status: 401 });
@@ -100,7 +101,7 @@ async function loginUser({ email, password }) {
 
 /**
  * Find user by ID.
- * @param {string} id
+ * @param {string|number} id
  * @returns {Promise<object|null>}
  */
 async function getUserById(id) {

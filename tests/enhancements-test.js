@@ -52,13 +52,13 @@ async function runEnhancementTests() {
     assert.ok(data.data.id, 'Feedback ID should be returned');
 
     // Verify in database: user_id should be NULL
-    const [rows] = await pool.query('SELECT * FROM feedback WHERE id = ?', [data.data.id]);
+    const [rows] = await pool.query('SELECT * FROM resumefit_feedback WHERE id = ?', [data.data.id]);
     assert.strictEqual(rows.length, 1, 'Feedback should be saved in DB');
     assert.strictEqual(rows[0].user_id, null, 'Guest feedback user_id must be null');
     assert.strictEqual(rows[0].type, 'Bug Report');
 
     // Clean up test feedback
-    await pool.query('DELETE FROM feedback WHERE id = ?', [data.data.id]);
+    await pool.query('DELETE FROM resumefit_feedback WHERE id = ?', [data.data.id]);
   });
 
   // Test 2: Feedback validation rejection
@@ -82,7 +82,7 @@ async function runEnhancementTests() {
   let guestReportId = null;
   await test('Guest analysis produces complete report but is NEVER persisted to MySQL', async () => {
     // Count analyses in DB before
-    const [beforeRows] = await pool.query('SELECT count(*) as count FROM analyses');
+    const [beforeRows] = await pool.query('SELECT count(*) as count FROM resumefit_analyses');
     const beforeCount = beforeRows[0].count;
 
     const fd = new FormData();
@@ -111,12 +111,12 @@ async function runEnhancementTests() {
     guestReportId = data.data.id;
 
     // Count analyses in DB after: MUST NOT INCREASE!
-    const [afterRows] = await pool.query('SELECT count(*) as count FROM analyses');
+    const [afterRows] = await pool.query('SELECT count(*) as count FROM resumefit_analyses');
     const afterCount = afterRows[0].count;
     assert.strictEqual(afterCount, beforeCount, 'Guest analysis MUST NOT be inserted into analyses table!');
 
     // Check directly in DB that guestReportId does not exist
-    const [checkRows] = await pool.query('SELECT * FROM analyses WHERE id = ?', [guestReportId]);
+    const [checkRows] = await pool.query('SELECT * FROM resumefit_analyses WHERE id = ?', [guestReportId]);
     assert.strictEqual(checkRows.length, 0, 'Guest analysis report must not exist in MySQL!');
   });
 
@@ -180,9 +180,9 @@ async function runEnhancementTests() {
     const authReportId = analyzeData.data.id;
 
     // Verify it IS persisted in MySQL with user_id
-    const [dbRows] = await pool.query('SELECT * FROM analyses WHERE id = ?', [authReportId]);
+    const [dbRows] = await pool.query('SELECT * FROM resumefit_analyses WHERE id = ?', [authReportId]);
     assert.strictEqual(dbRows.length, 1, 'Authenticated analysis must be saved in MySQL');
-    assert.strictEqual(dbRows[0].user_id, userId, 'Analysis must be associated with authenticated user ID');
+    assert.strictEqual(Number(dbRows[0].user_id), Number(userId), 'Analysis must be associated with authenticated user ID');
 
     // Verify owner can retrieve it via GET /api/analyses
     const listRes = await fetch(`${BASE_URL}/api/analyses`, {
@@ -209,7 +209,7 @@ async function runEnhancementTests() {
     assert.strictEqual(delRes.status, 200);
 
     // Verify report is deleted from DB
-    const [afterDelRows] = await pool.query('SELECT * FROM analyses WHERE id = ?', [authReportId]);
+    const [afterDelRows] = await pool.query('SELECT * FROM resumefit_analyses WHERE id = ?', [authReportId]);
     assert.strictEqual(afterDelRows.length, 0, 'Report must be removed after delete');
 
     // Clean up test user

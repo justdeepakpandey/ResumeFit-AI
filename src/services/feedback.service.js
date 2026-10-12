@@ -10,7 +10,7 @@ const { getPool } = require('../config/db');
 /**
  * Save a feedback submission to the database.
  * @param {object} params
- * @param {string|null} params.userId
+ * @param {string|number|null} params.userId
  * @param {string} params.type
  * @param {string|null} params.subject
  * @param {string} params.message
@@ -21,11 +21,11 @@ async function createFeedback({ userId = null, type, subject = null, message }) 
   const id = crypto.randomUUID();
 
   const sql = `
-    INSERT INTO feedback (id, user_id, type, subject, message)
+    INSERT INTO resumefit_feedback (id, user_id, type, subject, message)
     VALUES (?, ?, ?, ?, ?)
   `;
 
-  await pool.query(sql, [id, userId || null, type, subject || null, message]);
+  await pool.query(sql, [id, userId ? Number(userId) : null, type, subject || null, message]);
 
   return {
     id,

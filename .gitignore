@@ -35,3 +35,5 @@ build/
 
 # Coverage reports
 coverage/
+# Database certificates
+certs/

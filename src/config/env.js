@@ -31,6 +31,9 @@ const env = {
   DB_USER: optionalEnv('DB_USER', 'root'),
   DB_PASSWORD: optionalEnv('DB_PASSWORD', ''),
   DB_NAME: optionalEnv('DB_NAME', 'resumefit_ai'),
+  DB_SSL: optionalEnv('DB_SSL', ''),
+  DB_CA_PATH: optionalEnv('DB_CA_PATH', ''),
+  DB_CA_CERT: optionalEnv('DB_CA_CERT', ''),
 
   // Gemini
   GEMINI_API_KEY: optionalEnv('GEMINI_API_KEY', ''),   // validated lazily in gemini service

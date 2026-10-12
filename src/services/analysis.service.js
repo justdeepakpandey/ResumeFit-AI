@@ -7,7 +7,7 @@
  *  1. Extract text from uploaded resume file
  *  2. Call Gemini to analyse resume vs. job description
  *  3. Calculate deterministic score
- *  4. Persist to MySQL
+ *  4. Persist to MySQL (resumefit_analyses table)
  *  5. Clean up temporary upload
  *
  * Returns the full report object.
@@ -29,6 +29,7 @@ const { getPool } = require('../config/db');
  * @param {string} params.jobDescription
  * @param {string} [params.jobTitle]
  * @param {string} [params.companyName]
+ * @param {string|number|null} [params.userId]
  * @returns {Promise<object>} Full analysis report
  */
 async function runAnalysis({
@@ -59,9 +60,11 @@ async function runAnalysis({
   // Step 4: Persist (only for authenticated users — guest analyses are never saved)
   const id = crypto.randomUUID();
   const now = new Date();
+  const parsedUserId = userId ? Number(userId) : null;
+
   const reportData = {
     id,
-    userId: userId || null,
+    userId: parsedUserId,
     jobTitle: jobTitle || null,
     companyName: companyName || null,
     jobDescription,
@@ -71,9 +74,9 @@ async function runAnalysis({
     createdAt: now,
   };
 
-  if (userId) {
+  if (parsedUserId) {
     await persistReport(reportData);
-    const saved = await getAnalysisById(id, userId);
+    const saved = await getAnalysisById(id, parsedUserId);
     return saved || reportData;
   }
 
@@ -97,7 +100,7 @@ async function persistReport(report) {
   if (report.createdAt) {
     const formattedCreatedAt = toMySQLDateTime(report.createdAt);
     const sql = `
-      INSERT INTO analyses (
+      INSERT INTO resumefit_analyses (
         id, user_id, job_title, company_name, job_description, resume_filename,
         match_score, skills_score, experience_score, projects_score,
         required_skills_total, required_skills_matched,
@@ -127,7 +130,7 @@ async function persistReport(report) {
   } else {
     // Omit created_at so MySQL uses DEFAULT CURRENT_TIMESTAMP
     const sql = `
-      INSERT INTO analyses (
+      INSERT INTO resumefit_analyses (
         id, user_id, job_title, company_name, job_description, resume_filename,
         match_score, skills_score, experience_score, projects_score,
         required_skills_total, required_skills_matched,
@@ -172,11 +175,11 @@ async function getRecentAnalyses(userId = null, limit = 20) {
             required_skills_total, required_skills_matched,
             preferred_skills_total, preferred_skills_matched,
             created_at
-     FROM analyses
+     FROM resumefit_analyses
      WHERE user_id = ?
      ORDER BY created_at DESC LIMIT ?`;
 
-  const [rows] = await pool.query(sql, [userId, Math.min(limit, 100)]);
+  const [rows] = await pool.query(sql, [Number(userId), Math.min(limit, 100)]);
   return rows;
 }
 
@@ -193,16 +196,15 @@ async function getAnalysisById(id, userId = null) {
             required_skills_total, required_skills_matched,
             preferred_skills_total, preferred_skills_matched,
             analysis_json, created_at
-     FROM analyses
+     FROM resumefit_analyses
      WHERE id = ? AND user_id = ?`;
-  const params = [id, userId];
+  const params = [id, Number(userId)];
 
   const [rows] = await pool.query(sql, params);
 
   if (rows.length === 0) return null;
 
   const row = rows[0];
-  // analysis_json may already be parsed by mysql2 if the column is JSON type
   const analysis =
     typeof row.analysis_json === 'string'
       ? JSON.parse(row.analysis_json)
@@ -236,8 +238,8 @@ async function deleteAnalysis(id, userId = null) {
   if (!id || !userId) return false;
 
   const pool = getPool();
-  const sql = 'DELETE FROM analyses WHERE id = ? AND user_id = ?';
-  const [result] = await pool.query(sql, [id, userId]);
+  const sql = 'DELETE FROM resumefit_analyses WHERE id = ? AND user_id = ?';
+  const [result] = await pool.query(sql, [id, Number(userId)]);
   return result.affectedRows > 0;
 }
 
