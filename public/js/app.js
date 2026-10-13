@@ -14,11 +14,56 @@
 'use strict';
 
 /* ──────────────────────────────────────────────────────────
-   Constants & State
+   Centralized API Configuration
 ────────────────────────────────────────────────────────── */
-const API_BASE =
-  (typeof window !== 'undefined' && (window.API_BASE || window.RESUMEFIT_API_URL)) ||
-  '/api';
+const API_CONFIG = {
+  // Production Render backend base URL
+  productionBase: 'https://resumefit-ai-sfk4.onrender.com/api',
+  // Local development backend fallback
+  localBase: '/api',
+
+  /**
+   * Resolves the API base URL depending on runtime environment.
+   * - In production (e.g. deployed on Vercel), points to the deployed Render backend:
+   *   https://resumefit-ai-sfk4.onrender.com/api
+   * - In local development (localhost / 127.0.0.1 / file:), points to local /api
+   * - Can be overridden at runtime via window.API_BASE or window.RESUMEFIT_API_URL
+   */
+  resolveBase() {
+    if (typeof window !== 'undefined') {
+      // 1. Explicit manual override
+      if (window.API_BASE && typeof window.API_BASE === 'string') {
+        return window.API_BASE.trim().replace(/\/+$/, '');
+      }
+      if (window.RESUMEFIT_API_URL && typeof window.RESUMEFIT_API_URL === 'string') {
+        return window.RESUMEFIT_API_URL.trim().replace(/\/+$/, '');
+      }
+
+      // 2. Check environment based on hostname
+      const hostname = window.location.hostname || '';
+      const isLocalhost =
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname === '0.0.0.0' ||
+        hostname.endsWith('.local') ||
+        window.location.protocol === 'file:';
+
+      if (isLocalhost) {
+        const port = window.location.port;
+        // If loaded from a different local dev server port (e.g. 5500, 8080), route to Express on 3000
+        if (port && port !== '3000' && window.location.protocol !== 'file:') {
+          return 'http://localhost:3000/api';
+        }
+        return this.localBase;
+      }
+    }
+
+    // 3. Deployed production on Vercel or any remote domain
+    return this.productionBase;
+  },
+};
+
+const API_BASE = API_CONFIG.resolveBase();
 const MAX_FILE_SIZE_MB = 5;
 
 const state = {

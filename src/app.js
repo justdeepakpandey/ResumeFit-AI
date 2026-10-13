@@ -45,21 +45,22 @@ function isOriginAllowed(origin) {
   return false;
 }
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (isOriginAllowed(origin)) {
-        return callback(null, true);
-      }
-      const err = new Error(`CORS: origin "${origin}" is not allowed.`);
-      err.status = 403;
-      callback(err);
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Accept', 'Authorization'],
-  })
-);
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (isOriginAllowed(origin)) {
+      return callback(null, true);
+    }
+    const err = new Error(`CORS: origin "${origin}" is not allowed.`);
+    err.status = 403;
+    callback(err);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Accept', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // ── Body & Cookie parsers ──────────────────────────────────────────────────────
 app.use(cookieParser());
@@ -70,7 +71,7 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use('/api', generalLimiter);
 
 // ── Health endpoint ───────────────────────────────────────────────────────────
-app.get('/api/health', async (_req, res) => {
+app.get(['/api/health', '/health'], async (_req, res) => {
   const db = await testConnection();
   const status = db.ok ? 'ok' : 'degraded';
   res.status(db.ok ? 200 : 503).json({

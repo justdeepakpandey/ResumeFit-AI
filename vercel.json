@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:match*",
+      "destination": "https://resumefit-ai-sfk4.onrender.com/api/:match*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://resumefit-ai-sfk4.onrender.com/api/health"
+    }
+  ]
+}

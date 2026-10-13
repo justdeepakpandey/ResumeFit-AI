@@ -47,7 +47,10 @@ const env = {
   RATE_LIMIT_MAX_REQUESTS: parseInt(optionalEnv('RATE_LIMIT_MAX_REQUESTS', '10'), 10),
 
   // CORS
-  ALLOWED_ORIGINS: optionalEnv('ALLOWED_ORIGINS', 'http://localhost:3000')
+  ALLOWED_ORIGINS: optionalEnv(
+    'ALLOWED_ORIGINS',
+    'http://localhost:3000,https://resume-fit-ai-nine.vercel.app'
+  )
     .split(',')
     .map(s => s.trim().replace(/\/+$/, ''))
     .filter(Boolean),

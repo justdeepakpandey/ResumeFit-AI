@@ -313,7 +313,7 @@ async function main() {
   let serverOnline = false;
   try {
     const probe = await fetch(`${targetBase}/api/health`, {
-      signal: AbortSignal.timeout(1200),
+      signal: AbortSignal.timeout(5000),
     });
     serverOnline = probe.status > 0;
   } catch {
