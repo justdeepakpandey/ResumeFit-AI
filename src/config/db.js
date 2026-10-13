@@ -25,19 +25,22 @@ function getSslConfig() {
 
   let caContent = null;
 
-  if (env.DB_CA_CERT) {
-    caContent = env.DB_CA_CERT;
-  } else if (env.DB_CA_PATH) {
-    const resolvedPath = path.isAbsolute(env.DB_CA_PATH)
-      ? env.DB_CA_PATH
-      : path.resolve(__dirname, '../../', env.DB_CA_PATH);
+  const rawCert = env.DB_CA_CERT || process.env.DB_CA_CERT;
+  const rawPath = env.DB_CA_PATH || process.env.DB_CA_PATH;
+
+  if (rawCert) {
+    caContent = rawCert;
+  } else if (rawPath) {
+    const resolvedPath = path.isAbsolute(rawPath)
+      ? rawPath
+      : path.resolve(__dirname, '../../', rawPath);
     if (fs.existsSync(resolvedPath)) {
       caContent = fs.readFileSync(resolvedPath, 'utf8');
     } else {
       console.warn(`[DB] Warning: CA cert file not found at ${resolvedPath}`);
     }
   } else {
-    // Default fallback if certs/aiven-ca.pem exists
+    // Default fallback if certs/aiven-ca.pem exists (e.g. local dev)
     const defaultCaPath = path.resolve(__dirname, '../../certs/aiven-ca.pem');
     if (fs.existsSync(defaultCaPath)) {
       caContent = fs.readFileSync(defaultCaPath, 'utf8');
@@ -45,6 +48,17 @@ function getSslConfig() {
   }
 
   if (caContent) {
+    // Convert escaped newlines (e.g. literal \n from Render env vars) to real newlines
+    if (typeof caContent === 'string') {
+      caContent = caContent.replace(/\\n/g, '\n').trim();
+      if (
+        (caContent.startsWith('"') && caContent.endsWith('"')) ||
+        (caContent.startsWith("'") && caContent.endsWith("'"))
+      ) {
+        caContent = caContent.slice(1, -1).replace(/\\n/g, '\n').trim();
+      }
+    }
+
     return {
       ca: caContent,
       rejectUnauthorized: true,
@@ -52,7 +66,7 @@ function getSslConfig() {
   }
 
   // If host is on Aiven cloud or DB_SSL is requested, enforce TLS
-  if (env.DB_HOST.includes('aivencloud.com') || env.DB_SSL === 'true') {
+  if ((env.DB_HOST && env.DB_HOST.includes('aivencloud.com')) || env.DB_SSL === 'true') {
     return {
       rejectUnauthorized: true,
     };

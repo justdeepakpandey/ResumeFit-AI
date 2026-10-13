@@ -8,10 +8,11 @@ const { validateSignupInput, validateLoginInput } = require('../validators/auth.
 const { registerUser, loginUser, getUserById } = require('../services/auth.service');
 const env = require('../config/env');
 
+const isProduction = env.NODE_ENV === 'production';
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: env.NODE_ENV === 'production',
-  sameSite: 'lax',
+  secure: isProduction,
+  sameSite: isProduction ? 'none' : 'lax',
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
@@ -73,7 +74,11 @@ async function login(req, res, next) {
  * POST /api/auth/logout
  */
 async function logout(_req, res) {
-  res.clearCookie('auth_token', { httpOnly: true, sameSite: 'lax' });
+  res.clearCookie('auth_token', {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+  });
   return res.json({ success: true, message: 'Logged out successfully.' });
 }
 

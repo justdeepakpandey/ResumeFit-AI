@@ -16,7 +16,9 @@
 /* ──────────────────────────────────────────────────────────
    Constants & State
 ────────────────────────────────────────────────────────── */
-const API_BASE = '/api';
+const API_BASE =
+  (typeof window !== 'undefined' && (window.API_BASE || window.RESUMEFIT_API_URL)) ||
+  '/api';
 const MAX_FILE_SIZE_MB = 5;
 
 const state = {
@@ -24,7 +26,24 @@ const state = {
   currentReport: null,
   isLoading: false,
   currentUser: null,
+  authToken:
+    typeof sessionStorage !== 'undefined'
+      ? sessionStorage.getItem('resumefit_token')
+      : null,
 };
+
+function getAuthHeaders(extraHeaders = {}) {
+  const headers = { ...extraHeaders };
+  const token =
+    state.authToken ||
+    (typeof sessionStorage !== 'undefined'
+      ? sessionStorage.getItem('resumefit_token')
+      : null);
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
 
 /* ──────────────────────────────────────────────────────────
    DOM References
@@ -172,12 +191,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 ────────────────────────────────────────────────────────── */
 async function checkAuthSession() {
   try {
-    const res = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
+    const token =
+      typeof sessionStorage !== 'undefined'
+        ? sessionStorage.getItem('resumefit_token')
+        : null;
+    if (token) state.authToken = token;
+
+    const res = await fetch(`${API_BASE}/auth/me`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
     if (res.ok) {
       const data = await res.json();
       if (data.success && data.user) {
         state.currentUser = data.user;
       }
+    } else if (res.status === 401) {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem('resumefit_token');
+      }
+      state.authToken = null;
+      state.currentUser = null;
     }
   } catch {
     // guest mode default
@@ -289,6 +323,12 @@ async function handleLogin(e) {
     }
 
     state.currentUser = data.user;
+    if (data.token) {
+      state.authToken = data.token;
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('resumefit_token', data.token);
+      }
+    }
     renderAuthState();
     closeAuthModal();
     showNotification('success', 'Logged In', `Welcome back, ${data.user.name}!`);
@@ -343,6 +383,12 @@ async function handleSignup(e) {
     }
 
     state.currentUser = data.user;
+    if (data.token) {
+      state.authToken = data.token;
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('resumefit_token', data.token);
+      }
+    }
     renderAuthState();
     closeAuthModal();
     showNotification('success', 'Account Created', `Welcome to ResumeFit AI, ${data.user.name}!`);
@@ -359,11 +405,16 @@ async function handleLogout() {
   try {
     await fetch(`${API_BASE}/auth/logout`, {
       method: 'POST',
+      headers: getAuthHeaders(),
       credentials: 'include',
     });
   } catch (_e) {
     // ignore network error
   }
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.removeItem('resumefit_token');
+  }
+  state.authToken = null;
   state.currentUser = null;
   resetForm();
   renderAuthState();
@@ -470,7 +521,7 @@ async function handleFeedbackSubmit(e) {
   try {
     const res = await fetch(`${API_BASE}/feedback`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
       credentials: 'include',
       body: JSON.stringify({ type, subject, message }),
     });
@@ -739,6 +790,7 @@ async function handleAnalyze(e) {
     showProgress(30);
     const res = await fetch(`${API_BASE}/analyze`, {
       method: 'POST',
+      headers: getAuthHeaders(),
       body: formData,
       credentials: 'include',
     });
@@ -1089,7 +1141,10 @@ async function loadHistory() {
   if (!state.currentUser) return;
 
   try {
-    const res = await fetch(`${API_BASE}/analyses?limit=20`, { credentials: 'include' });
+    const res = await fetch(`${API_BASE}/analyses?limit=20`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
     if (!res.ok) return;
     const data = await res.json();
     if (!data.success) return;
@@ -1155,7 +1210,10 @@ function renderHistory(analyses) {
 
 async function loadHistoryItem(id) {
   try {
-    const res = await fetch(`${API_BASE}/analyses/${id}`, { credentials: 'include' });
+    const res = await fetch(`${API_BASE}/analyses/${id}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
     if (!res.ok) { showNotification('error', 'Not Found', 'Could not load that analysis.'); return; }
     const data = await res.json();
     if (!data.success) return;
@@ -1193,7 +1251,11 @@ async function loadHistoryItem(id) {
 
 async function deleteHistoryItem(id, itemEl) {
   try {
-    const res = await fetch(`${API_BASE}/analyses/${id}`, { method: 'DELETE', credentials: 'include' });
+    const res = await fetch(`${API_BASE}/analyses/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
     if (!res.ok) { showNotification('error', 'Delete Failed', 'Could not delete that analysis.'); return; }
     itemEl.style.opacity = '0';
     itemEl.style.transition = 'opacity 200ms';

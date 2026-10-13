@@ -23,7 +23,7 @@ function optionalEnv(name, defaultValue = '') {
 
 const env = {
   NODE_ENV: optionalEnv('NODE_ENV', 'development'),
-  PORT: parseInt(optionalEnv('PORT', '3000'), 10),
+  PORT: parseInt(process.env.PORT || optionalEnv('PORT', '3000'), 10),
 
   // Database
   DB_HOST: optionalEnv('DB_HOST', 'localhost'),
@@ -49,7 +49,7 @@ const env = {
   // CORS
   ALLOWED_ORIGINS: optionalEnv('ALLOWED_ORIGINS', 'http://localhost:3000')
     .split(',')
-    .map(s => s.trim())
+    .map(s => s.trim().replace(/\/+$/, ''))
     .filter(Boolean),
 
   // Auth

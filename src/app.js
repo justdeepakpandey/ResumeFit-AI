@@ -20,13 +20,40 @@ const feedbackRoutes = require('./routes/feedback.routes');
 const app = express();
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
+const allowedOrigins = new Set(
+  env.ALLOWED_ORIGINS.map((origin) => origin.trim().replace(/\/+$/, '').toLowerCase())
+);
+
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.add(process.env.FRONTEND_URL.trim().replace(/\/+$/, '').toLowerCase());
+}
+if (process.env.VERCEL_URL) {
+  const vUrl = process.env.VERCEL_URL.trim().replace(/\/+$/, '').toLowerCase();
+  allowedOrigins.add(vUrl.startsWith('http') ? vUrl : `https://${vUrl}`);
+}
+
+function isOriginAllowed(origin) {
+  if (!origin) return true;
+  const normalized = origin.trim().replace(/\/+$/, '').toLowerCase();
+
+  // Check exact configured origins (production Vercel origin, localhost, etc.)
+  if (allowedOrigins.has(normalized)) return true;
+
+  // Allow Vercel preview and production deployment subdomains (*.vercel.app)
+  if (/^https:\/\/[a-z0-9-]+(\.vercel\.app)$/i.test(normalized)) return true;
+
+  return false;
+}
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (same-origin, Postman, curl)
-      if (!origin) return callback(null, true);
-      if (env.ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
-      callback(new Error(`CORS: origin "${origin}" is not allowed.`));
+      if (isOriginAllowed(origin)) {
+        return callback(null, true);
+      }
+      const err = new Error(`CORS: origin "${origin}" is not allowed.`);
+      err.status = 403;
+      callback(err);
     },
     credentials: true,
     methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],

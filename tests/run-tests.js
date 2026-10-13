@@ -237,10 +237,8 @@ test('Optional fields can be empty', () => {
 /* ════════════════════════════════════════════════════════════
    INTEGRATION TESTS (require running server)
 ════════════════════════════════════════════════════════════ */
-console.log('\n── Integration Tests (require running server) ────────');
-
-async function integrationTests() {
-  const BASE = 'http://localhost:3000';
+async function integrationTests(base) {
+  const BASE = base || process.env.TEST_BASE_URL || ('http://localhost:' + (process.env.PORT || 3000));
 
   // ── Health endpoint ──────────────────────────────────────
   await asyncTest('GET /api/health returns 200 or 503', async () => {
@@ -261,7 +259,6 @@ async function integrationTests() {
 
   // ── Analyze: missing JD ──────────────────────────────────
   await asyncTest('POST /api/analyze without JD returns 400', async () => {
-    // We can't easily fake a file in Node without a real file, so just send empty form
     const fd = new FormData();
     fd.append('jobDescription', '');
     const res = await fetch(`${BASE}/api/analyze`, { method: 'POST', body: fd });
@@ -310,12 +307,25 @@ async function asyncTest(name, fn) {
 
 /* ── Run all ─────────────────────────────────────────────── */
 async function main() {
-  // Integration tests need fetch — use Node 18+ built-in
+  const targetPort = process.env.PORT || 3000;
+  const targetBase = process.env.TEST_BASE_URL || `http://localhost:${targetPort}`;
+
+  let serverOnline = false;
   try {
-    await integrationTests();
-  } catch (err) {
-    console.warn('\n  [WARN] Integration tests skipped — server may not be running.');
-    console.warn(`  Error: ${err.message}`);
+    const probe = await fetch(`${targetBase}/api/health`, {
+      signal: AbortSignal.timeout(1200),
+    });
+    serverOnline = probe.status > 0;
+  } catch {
+    serverOnline = false;
+  }
+
+  if (serverOnline) {
+    console.log(`\n── Integration Tests (connected to ${targetBase}) ──`);
+    await integrationTests(targetBase);
+  } else {
+    console.log(`\n── Integration Tests (skipped: server not running on ${targetBase}) ──`);
+    console.log('   Run "npm run dev" or start the server to run integration suite.');
   }
 
   console.log(`\n══════════════════════════════════════════`);

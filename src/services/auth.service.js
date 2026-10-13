@@ -105,10 +105,13 @@ async function loginUser({ email, password }) {
  * @returns {Promise<object|null>}
  */
 async function getUserById(id) {
+  const numId = parseInt(id, 10);
+  if (isNaN(numId)) return null;
+
   const pool = getPool();
   const [rows] = await pool.query(
     'SELECT id, name, email, created_at FROM users WHERE id = ?',
-    [id]
+    [numId]
   );
 
   if (rows.length === 0) return null;

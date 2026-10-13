@@ -9,7 +9,7 @@ const env = require('./config/env');
 const app = require('./app');
 const { testConnection } = require('./config/db');
 
-const PORT = env.PORT;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : (env.PORT || 3000);
 
 async function start() {
   // Test DB at startup (non-fatal — app works without DB for health checks)
